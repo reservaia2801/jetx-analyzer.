@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#10131b">
+<link rel="manifest" href="./manifest.webmanifest"><title>JetX Analyzer</title>
+<style>
+:root{color-scheme:dark;--bg:#10131b;--panel:#1b202c;--muted:#aeb7c7;--accent:#f5d547;--line:#343b4a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f7fb;font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px 18px 18px;background:#171c27;border-bottom:1px solid var(--line)}h1{margin:0;font-size:25px}header p{margin:6px 0 0;color:var(--muted);font-size:14px}
+main{max-width:760px;margin:auto;padding:14px;display:grid;gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+h2{font-size:18px;margin:0 0 12px}.hint{color:var(--muted);font-size:13px;line-height:1.45}
+textarea,input,button{font:inherit}textarea,input[type=text]{width:100%;background:#0f131c;border:1px solid #465064;color:#fff;border-radius:10px;padding:12px}
+textarea{min-height:110px;resize:vertical}label{display:block;margin:10px 0 6px;font-weight:600;font-size:14px}
+button,.file-label{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:11px;padding:12px 15px;background:var(--accent);color:#161616;font-weight:750;cursor:pointer;margin:8px 6px 0 0}
+button.secondary{background:#303848;color:#fff;border:1px solid #495366}button.danger{background:#63343b;color:#fff}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{background:#111620;border:1px solid var(--line);border-radius:12px;padding:13px}.stat span{display:block;color:var(--muted);font-size:13px}.stat strong{display:block;font-size:25px;margin:4px 0}.stat small{color:var(--muted)}
+#preview{max-width:100%;max-height:260px;border-radius:10px;display:none;margin-top:10px}.resultlist{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.pill{background:#303848;border:1px solid #465064;border-radius:999px;padding:6px 9px;font-size:13px}
+.notice{border-left:3px solid var(--accent);padding:9px 12px;background:#252a32;color:#e7eaf0;font-size:13px;line-height:1.5}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 25px}
+@media(min-width:560px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header><h1>✈ JetX Analyzer</h1><p>Registro y estadísticas históricas · modo demo</p></header>
+<main>
+<section class="card">
+<h2>1. Agregar multiplicadores</h2>
+<p class="hint">Escribí o pegá valores separados por espacios, comas o saltos de línea. Ejemplo: 1.07x, 2.35x, 5.10x.</p>
+<label for="values">Multiplicadores</label><textarea id="values" placeholder="1.07x, 2.35x, 5.10x"></textarea>
+<button id="add">Agregar al historial</button><button id="clearInput" class="secondary">Limpiar campo</button>
+</section>
+<section class="card">
+<h2>2. Leer una captura</h2>
+<p class="hint">Elegí una captura de pantalla. El navegador intentará leer los números con reconocimiento de texto si la función está disponible. Revisá siempre los valores detectados antes de agregarlos; la lectura puede equivocarse.</p>
+<label class="file-label" for="imageFile">Elegir imagen</label><input id="imageFile" type="file" accept="image/*" capture="environment">
+<img id="preview" alt="Vista previa de la captura">
+<div id="ocrStatus" class="hint" aria-live="polite"></div>
+<div id="detected" class="resultlist"></div>
+<button id="addDetected" class="secondary" hidden>Copiar detectados al campo</button>
+</section>
+<section class="card">
+<h2>3. Estadísticas del historial</h2>
+<div class="stats">
+<div class="stat"><span>Rondas registradas</span><strong id="count">0</strong><small>valores válidos</small></div>
+<div class="stat"><span>≥ 1,5x</span><strong id="p15">—</strong><small id="n15">0 de 0</small></div>
+<div class="stat"><span>≥ 2x</span><strong id="p2">—</strong><small id="n2">0 de 0</small></div>
+<div class="stat"><span>≥ 5x</span><strong id="p5">—</strong><small id="n5">0 de 0</small></div>
+<div class="stat"><span>≥ 10x</span><strong id="p10">—</strong><small id="n10">0 de 0</small></div>
+<div class="stat"><span>Promedio</span><strong id="avg">—</strong><small>media aritmética</small></div>
+<div class="stat"><span>Mediana</span><strong id="median">—</strong><small>valor central</small></div>
+<div class="stat"><span>Máximo observado</span><strong id="max">—</strong><small>no predice el futuro</small></div>
+</div>
+<p class="hint" id="sampleNote">Agregá resultados para calcular estadísticas.</p>
+</section>
+<section class="card">
+<h2>4. Historial guardado en este dispositivo</h2>
+<p class="hint">Los datos se guardan localmente en este navegador. Si borrás los datos del navegador o cambiás de dispositivo, pueden perderse.</p>
+<div id="history" class="resultlist"></div>
+<button id="export" class="secondary">Exportar CSV</button><button id="removeLast" class="secondary">Deshacer último agregado</button><button id="reset" class="danger">Borrar historial</button>
+</section>
+<section class="card">
+<h2>Cómo interpretar</h2>
+<div class="notice">Estos porcentajes describen solamente las rondas que registraste. No son probabilidades garantizadas para la próxima ronda. Una racha de resultados bajos o altos no permite saber cuándo ocurrirá el siguiente resultado.</div>
+</section>
+</main>
+<footer>JetX Analyzer es una herramienta independiente de registro estadístico. No realiza apuestas ni se conecta a tu cuenta de juego.</footer>
+<script>
+const KEY='jetxAnalyzerHistoryV1';
+let values=load();
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x.filter(n=>Number.isFinite(n)&&n>=1):[]}catch{return []}}
+function save(){localStorage.setItem(KEY,JSON.stringify(values));render()}
+function parseValues(s){const matches=s.replace(/,/g,'.').match(/\d+(?:\.\d+)?\s*x?/gi)||[];return matches.map(t=>Number(t.toLowerCase().replace('x','').trim())).filter(n=>Number.isFinite(n)&&n>=1&&n<=1000000)}
+function fmt(n){return n.toLocaleString('es-AR',{maximumFractionDigits:2})+'x'}
+function pct(n,total){return total?((n/total)*100).toLocaleString('es-AR',{maximumFractionDigits:1})+'%':'—'}
+function addVals(v){if(!v.length){alert('No encontré multiplicadores válidos. Revisá que sean números mayores o iguales a 1, como 1.25x.');return}values.push(...v);save();document.getElementById('values').value=''}
+document.getElementById('add').onclick=()=>addVals(parseValues(document.getElementById('values').value));
+document.getElementById('clearInput').onclick=()=>document.getElementById('values').value='';
+function render(){
+ const n=values.length, sorted=[...values].sort((a,b)=>a-b);
+ document.getElementById('count').textContent=n;
+ [[1.5,'15'],[2,'2'],[5,'5'],[10,'10']].forEach(([t,id])=>{const c=values.filter(x=>x>=t).length;document.getElementById('p'+id).textContent=pct(c,n);document.getElementById('n'+id).textContent=`${c} de ${n}`});
+ document.getElementById('avg').textContent=n?fmt(values.reduce((a,b)=>a+b,0)/n):'—';
+ document.getElementById('median').textContent=n?fmt(n%2?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2):'—';
+ document.getElementById('max').textContent=n?fmt(Math.max(...values)):'—';
+ document.getElementById('sampleNote').textContent=n<30?`Muestra pequeña (${n} rondas). Los porcentajes pueden variar mucho con más datos.`:`Muestra de ${n} rondas. Los resultados siguen siendo descriptivos, no predictivos.`;
+ const h=document.getElementById('history');h.innerHTML='';
+ values.slice(-80).reverse().forEach((v,i)=>{const s=document.createElement('span');s.className='pill';s.textContent=fmt(v);h.appendChild(s)});
+ if(!n)h.textContent='Todavía no hay resultados guardados.';
+}
+document.getElementById('removeLast').onclick=()=>{if(values.length){values.pop();save()}};
+document.getElementById('reset').onclick=()=>{if(confirm('¿Borrar todos los multiplicadores guardados en este navegador?')){values=[];save()}};
+document.getElementById('export').onclick=()=>{if(!values.length){alert('Todavía no hay datos para exportar.');return}const csv='numero,multiplicador\\n'+values.map((v,i)=>`${i+1},${v}`).join('\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='jetx-historial.csv';a.click();URL.revokeObjectURL(a.href)};
+const file=document.getElementById('imageFile');let detected=[];
+file.onchange=async()=>{const f=file.files&&file.files[0];if(!f)return;const img=document.getElementById('preview');img.src=URL.createObjectURL(f);img.style.display='block';const status=document.getElementById('ocrStatus'),out=document.getElementById('detected'),copy=document.getElementById('addDetected');out.innerHTML='';detected=[];copy.hidden=true;
+ if(!('TextDetector' in window)){status.textContent='La lectura automática de texto no está disponible en este navegador. Podés ampliar la captura y escribir los multiplicadores manualmente en el campo de arriba.';return}
+ try{status.textContent='Leyendo imagen…';const bitmap=await createImageBitmap(f);const detector=new TextDetector();const blocks=await detector.detect(bitmap);const text=blocks.map(b=>b.rawValue).join(' ');detected=parseValues(text);status.textContent=detected.length?`Detecté ${detected.length} posibles valores. Comprobá los chips antes de copiarlos.`:'No se detectaron valores claros. Ingresalos manualmente.';detected.forEach(v=>{const el=document.createElement('span');el.className='pill';el.textContent=fmt(v);out.appendChild(el)});copy.hidden=!detected.length;copy.onclick=()=>{document.getElementById('values').value=detected.map(fmt).join(', ')};
+ }catch(e){status.textContent='No se pudo leer automáticamente esta captura. Ingresá los valores manualmente.'}
+};
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+render();
+</script>
+</body></html>
